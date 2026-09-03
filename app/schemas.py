@@ -12,6 +12,7 @@ class ImageResponse(BaseModel):
     file_name: str
     file_path: str
     caption: str | None
+    likes_count: int
     created_at: datetime
 
     # Pydantic tự động chuyển đổi dữ liệu từ mô hình SQLAlchemy sang dạng JSON

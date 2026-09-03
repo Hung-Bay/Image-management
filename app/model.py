@@ -1,6 +1,6 @@
 import uuid
 from datetime import datetime
-from sqlalchemy import ForeignKey, String, DateTime, Text
+from sqlalchemy import ForeignKey, Integer, String, DateTime, Text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from db import Base
@@ -15,6 +15,7 @@ class Image(Base):
     saved_file_name: Mapped[str] = mapped_column(String)
     file_path: Mapped[str] = mapped_column(String)
     caption: Mapped[str | None] = mapped_column(Text, default=None)
+    likes_count: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.now)
 

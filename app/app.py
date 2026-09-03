@@ -154,3 +154,17 @@ async def delete_comment(comment_id: uuid.UUID, session: AsyncSession = Depends(
     await session.delete(comment)
     await session.commit()
     return {"message": "Bình luận đã được xóa thành công.", "comment_id": str(comment_id)}
+
+@app.post("/images/{image_id}/like", response_model=ImageResponse)
+async def like_image(image_id: uuid.UUID, session: AsyncSession = Depends(get_async_session)):
+    stmt = select(Image).where(Image.id == image_id)
+    result = await session.execute(stmt)
+    image = result.scalar_one_or_none()
+    if not image:
+        raise HTTPException(
+            status_code=404, detail="Không tìm thấy ảnh với ID đã cho.")
+    
+    image.likes_count += 1  # Tăng số lượt thích lên 1
+    await session.commit()
+    await session.refresh(image)
+    return image
