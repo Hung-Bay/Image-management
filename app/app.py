@@ -8,14 +8,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from db import get_async_session, create_db_and_tables
-from model import Image
-from schemas import ImageUpdate, ImageResponse, ImagePut
+from model import Image, Comment
+from schemas import ImageUpdate, ImageResponse, ImagePut, CommentCreate, CommentResponse
 
 UPLOAD_DIR = "static/uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)  # tạo thư mục để chứa ảnh
 
 
-@asynccontextmanager #Hàm context manager bất đồng bộ để quản lý vòng đời của ứng dụng FastAPI
+# Hàm context manager bất đồng bộ để quản lý vòng đời của ứng dụng FastAPI
+@asynccontextmanager
 async def lifespan(app: FastAPI):
     await create_db_and_tables()
     yield
@@ -31,7 +32,7 @@ async def upload_image(file: UploadFile = File(...), caption: str | None = Form(
     if not file.content_type.startswith("image/"):
         raise HTTPException(
             status_code=400, detail="File gửi lên phải là ảnh.")
-    extension = os.path.splitext(file.filename)[1] #lấy phần mở rộng của tệp
+    extension = os.path.splitext(file.filename)[1]  # lấy phần mở rộng của tệp
     saved_file_name = f"{uuid.uuid4()}{extension}"
     file_path = os.path.join(UPLOAD_DIR, saved_file_name)
 
@@ -104,7 +105,7 @@ async def replace_image_inf(image_id: uuid.UUID, image_put: ImagePut, session: A
     stmt = select(Image).where(Image.id == image_id)
     result = await session.execute(stmt)
     image = result.scalar_one_or_none()
-    if not Image:
+    if not image:
         raise HTTPException(
             status_code=404, detail="Không tìm thấy ảnh với ID đã cho")
     image.caption = image_put.caption
@@ -112,3 +113,44 @@ async def replace_image_inf(image_id: uuid.UUID, image_put: ImagePut, session: A
     await session.commit()
     await session.refresh(image)
     return image
+
+
+@app.post("/images/{image_id}/comments", response_model=CommentResponse)
+async def add_comment(image_id: uuid.UUID, comment_create: CommentCreate, session: AsyncSession = Depends(get_async_session)):
+    stmt = select(Image).where(Image.id == image_id)
+    result = await session.execute(stmt)
+    image = result.scalar_one_or_none()
+    if not image:
+        raise HTTPException(
+            status_code=404, detail="Không tìm thấy ảnh với ID đã cho.")
+    new_comment = Comment(image_id=image_id, content=comment_create.content)
+    session.add(new_comment)
+    await session.commit()
+    await session.refresh(new_comment)
+    return new_comment
+
+
+@app.get("/images/{image_id}/comments", response_model=list[CommentResponse])
+async def get_comments(image_id: uuid.UUID, session: AsyncSession = Depends(get_async_session)):
+    result = await session.execute(select(Image).where(Image.id == image_id))
+    image = result.scalar_one_or_none()
+    if not image:
+        raise HTTPException(
+            status_code=404, detail="Không tìm thấy ảnh với ID đã cho.")
+    stmt = select(Comment).where(Comment.image_id ==
+                                 image_id).order_by(Comment.created_at.desc())
+    result1 = await session.execute(stmt)
+    comments = result1.scalars().all()
+    return comments
+
+
+@app.delete("/comments/{comment_id}")
+async def delete_comment(comment_id: uuid.UUID, session: AsyncSession = Depends(get_async_session)):
+    result = await session.execute(select(Comment).where(Comment.id == comment_id))
+    comment = result.scalar_one_or_none()
+    if not comment:
+        raise HTTPException(
+            status_code=404, detail="Không tìm thấy bình luận với ID đã cho.")
+    await session.delete(comment)
+    await session.commit()
+    return {"message": "Bình luận đã được xóa thành công.", "comment_id": str(comment_id)}
