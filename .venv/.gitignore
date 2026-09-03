@@ -1,0 +1,15 @@
+# Python & Virtual Environment
+.venv/
+__pycache__/
+*.pyc
+
+# Environment variables (chứa password CSDL)
+.env
+
+# Uploaded images (không đẩy ảnh cá nhân/thử nghiệm lên Git)
+static/uploads/*
+!static/uploads/.gitkeep
+
+# IDE configuration
+.vscode/
+.idea/

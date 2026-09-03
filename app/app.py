@@ -1,0 +1,114 @@
+import os
+import shutil
+import uuid
+from contextlib import asynccontextmanager
+from fastapi import FastAPI, File, UploadFile, HTTPException, Depends, Form
+from fastapi.staticfiles import StaticFiles
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+
+from db import get_async_session, create_db_and_tables
+from model import Image
+from schemas import ImageUpdate, ImageResponse, ImagePut
+
+UPLOAD_DIR = "static/uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)  # tạo thư mục để chứa ảnh
+
+
+@asynccontextmanager #Hàm context manager bất đồng bộ để quản lý vòng đời của ứng dụng FastAPI
+async def lifespan(app: FastAPI):
+    await create_db_and_tables()
+    yield
+
+app = FastAPI(lifespan=lifespan)  # khởi tạo bảng khi ứng dụng vừa chạy
+
+# Phục vụ các file tĩnh (ảnh đã lưu) thông qua đường dẫn URL
+app.mount("/static", StaticFiles(directory="static"), name="static")
+
+
+@app.post("/images", response_model=ImageResponse)
+async def upload_image(file: UploadFile = File(...), caption: str | None = Form(None), session: AsyncSession = Depends(get_async_session)):
+    if not file.content_type.startswith("image/"):
+        raise HTTPException(
+            status_code=400, detail="File gửi lên phải là ảnh.")
+    extension = os.path.splitext(file.filename)[1] #lấy phần mở rộng của tệp
+    saved_file_name = f"{uuid.uuid4()}{extension}"
+    file_path = os.path.join(UPLOAD_DIR, saved_file_name)
+
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(file.file, buffer)  # Lưu tệp vật lý vào đĩa
+
+    new_image = Image(file_name=file.filename, saved_file_name=saved_file_name,
+                      file_path=file_path, caption=caption)
+    session.add(new_image)
+    await session.commit()
+    await session.refresh(new_image)
+
+    return new_image
+
+
+@app.get("/images", response_model=list[ImageResponse])
+async def get_all_images(session: AsyncSession = Depends(get_async_session)):
+    stmt = select(Image).order_by(Image.created_at.desc())
+    result = await session.execute(stmt)
+    images = result.scalars().all()
+    return images
+
+
+@app.get("/images/{image_id}", response_model=ImageResponse)
+async def get_image(image_id: uuid.UUID, session: AsyncSession = Depends(get_async_session)):
+    stmt = select(Image).where(Image.id == image_id)
+    result = await session.execute(stmt)
+    image = result.scalar_one_or_none()
+    if not image:
+        raise HTTPException(
+            status_code=404, detail="Không tìm thấy ảnh với ID đã cho.")
+    return image
+
+
+@app.patch("/images/{image_id}", response_model=ImageResponse)
+async def update_image_caption(image_id: uuid.UUID, image_update: ImageUpdate, session: AsyncSession = Depends(get_async_session)):
+    stmt = select(Image).where(Image.id == image_id)
+    result = await session.execute(stmt)
+    image = result.scalar_one_or_none()
+    if not image:
+        raise HTTPException(
+            status_code=404, detail="Không tìm thấy ảnh với ID đã cho.")
+
+    if image_update.caption is not None:
+        image.caption = image_update.caption
+
+    await session.commit()
+    await session.refresh(image)
+    return image
+
+
+@app.delete("/images/{image_id}")
+async def delete_image(image_id: uuid.UUID, session: AsyncSession = Depends(get_async_session)):
+    stmt = select(Image).where(Image.id == image_id)
+    result = await session.execute(stmt)
+    image = result.scalar_one_or_none()
+    if not image:
+        raise HTTPException(
+            status_code=404, detail="Không tìm thấy ảnh với ID đã cho.")
+    if os.path.exists(image.file_path):
+        os.remove(image.file_path)
+
+    await session.delete(image)
+    await session.commit()
+    return {"message": "Ảnh đã được xóa thành công.", "image_id": str(image_id)}
+
+
+@app.put("/images/{image_id}")
+async def replace_image_inf(image_id: uuid.UUID, image_put: ImagePut, session: AsyncSession = Depends(get_async_session)):
+    stmt = select(Image).where(Image.id == image_id)
+    result = await session.execute(stmt)
+    image = result.scalar_one_or_none()
+    if not Image:
+        raise HTTPException(
+            status_code=404, detail="Không tìm thấy ảnh với ID đã cho")
+    image.caption = image_put.caption
+    image.file_name = image_put.file_name
+    await session.commit()
+    await session.refresh(image)
+    return image
