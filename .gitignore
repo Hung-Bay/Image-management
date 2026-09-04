@@ -1,15 +1,25 @@
-# Python & Virtual Environment
+# Python / Virtual Environment
 .venv/
+venv/
+env/
 __pycache__/
-*.pyc
+*.py[cod]
+*$py.class
 
-# Environment variables (chứa password CSDL)
+# Environment variables
 .env
+.env.*
 
-# Uploaded images (không đẩy ảnh cá nhân/thử nghiệm lên Git)
-static/uploads/*
-!static/uploads/.gitkeep
+# Uploaded images & media
+src/fastapi_vd3/static/uploads/*
+!src/fastapi_vd3/static/uploads/.gitkeep
 
-# IDE configuration
+# Alembic & Database local
+*.db
+*.sqlite3
+
+# IDE / Editor configuration
 .vscode/
 .idea/
+*.swp
+*.swo
