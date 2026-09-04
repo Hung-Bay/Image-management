@@ -8,8 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 
 from db import get_async_session, create_db_and_tables
-from model import Image, Comment
-from schemas import ImageUpdate, ImageResponse, ImagePut, CommentCreate, CommentResponse
+from model import Image, Comment, Category
+from schemas import ImageUpdate, ImageResponse, ImagePut, CommentCreate, CommentResponse, CategoryCreate, CategoryResponse
 
 UPLOAD_DIR = "static/uploads"
 os.makedirs(UPLOAD_DIR, exist_ok=True)  # tạo thư mục để chứa ảnh
@@ -27,11 +27,58 @@ app = FastAPI(lifespan=lifespan)  # khởi tạo bảng khi ứng dụng vừa c
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
+@app.post("/categories", response_model=CategoryResponse)
+async def create_category(category_create: CategoryCreate, session: AsyncSession = Depends(get_async_session)):
+    stmt = select(Category).where(Category.name == category_create.name)
+    result = await session.execute(stmt)
+    existing_category = result.scalar_one_or_none()
+    if existing_category:
+        raise HTTPException(
+            status_code=400, detail="Danh mục với tên này đã tồn tại.")
+    new_category = Category(name=category_create.name,
+                            description=category_create.description)
+    session.add(new_category)
+    await session.commit()
+    await session.refresh(new_category)
+    return new_category
+
+
+@app.get("/categories", response_model=list[CategoryResponse])
+async def get_all_categories(session: AsyncSession = Depends(get_async_session)):
+    stmt = select(Category).order_by(Category.created_at.desc())
+    result = await session.execute(stmt)
+    categories = result.scalars().all()
+    return categories
+
+
+@app.get("/categories/{category_id}/images", response_model=list[ImageResponse])
+async def get_images_by_category(category_id: uuid.UUID, session: AsyncSession = Depends(get_async_session)):
+    stmt = select(Category).where(Category.id == category_id)
+    result = await session.execute(stmt)
+    category = result.scalar_one_or_none()
+    if not category:
+        raise HTTPException(
+            status_code=404, detail="Không tìm thấy danh mục với ID đã cho.")
+    stmt = select(Image).where(Image.category_id ==
+                               category_id).order_by(Image.created_at.desc())
+    result1 = await session.execute(stmt)
+    images = result1.scalars().all()
+    return images
+
+
 @app.post("/images", response_model=ImageResponse)
-async def upload_image(file: UploadFile = File(...), caption: str | None = Form(None), session: AsyncSession = Depends(get_async_session)):
+async def upload_image(file: UploadFile = File(...), category_id: uuid.UUID | None = Form(None), caption: str | None = Form(None), session: AsyncSession = Depends(get_async_session)):
     if not file.content_type.startswith("image/"):
         raise HTTPException(
             status_code=400, detail="File gửi lên phải là ảnh.")
+    if category_id:
+        stmt = select(Category).where(Category.id == category_id)
+        result = await session.execute(stmt)
+        category = result.scalar_one_or_none()
+        if not category:
+            raise HTTPException(
+                status_code=404, detail="Không tìm thấy danh mục với ID đã cho.")
+
     extension = os.path.splitext(file.filename)[1]  # lấy phần mở rộng của tệp
     saved_file_name = f"{uuid.uuid4()}{extension}"
     file_path = os.path.join(UPLOAD_DIR, saved_file_name)
@@ -39,7 +86,7 @@ async def upload_image(file: UploadFile = File(...), caption: str | None = Form(
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)  # Lưu tệp vật lý vào đĩa
 
-    new_image = Image(file_name=file.filename, saved_file_name=saved_file_name,
+    new_image = Image(category_id=category_id, file_name=file.filename, saved_file_name=saved_file_name,
                       file_path=file_path, caption=caption)
     session.add(new_image)
     await session.commit()
@@ -155,6 +202,7 @@ async def delete_comment(comment_id: uuid.UUID, session: AsyncSession = Depends(
     await session.commit()
     return {"message": "Bình luận đã được xóa thành công.", "comment_id": str(comment_id)}
 
+
 @app.post("/images/{image_id}/like", response_model=ImageResponse)
 async def like_image(image_id: uuid.UUID, session: AsyncSession = Depends(get_async_session)):
     stmt = select(Image).where(Image.id == image_id)
@@ -163,8 +211,24 @@ async def like_image(image_id: uuid.UUID, session: AsyncSession = Depends(get_as
     if not image:
         raise HTTPException(
             status_code=404, detail="Không tìm thấy ảnh với ID đã cho.")
-    
+
     image.likes_count += 1  # Tăng số lượt thích lên 1
+    await session.commit()
+    await session.refresh(image)
+    return image
+
+
+@app.post("/images/{image_id}/unlike", response_model=ImageResponse)
+async def unlike_image(image_id: uuid.UUID, session: AsyncSession = Depends(get_async_session)):
+    stmt = select(Image).where(Image.id == image_id)
+    result = await session.execute(stmt)
+    image = result.scalar_one_or_none()
+    if not image:
+        raise HTTPException(
+            status_code=404, detail="Không tìm thấy ảnh với ID đã cho.")
+
+    if image.likes_count > 0:
+        image.likes_count -= 1  # Giảm số lượt thích xuống 1
     await session.commit()
     await session.refresh(image)
     return image

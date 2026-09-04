@@ -11,6 +11,8 @@ class Image(Base):
 
     id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    category_id: Mapped[uuid.UUID|None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("categories.id"), nullable=False)
     file_name: Mapped[str] = mapped_column(String)
     saved_file_name: Mapped[str] = mapped_column(String)
     file_path: Mapped[str] = mapped_column(String)
@@ -20,7 +22,8 @@ class Image(Base):
         DateTime, default=datetime.now)
 
     comments: Mapped[list["Comment"]] = relationship(
-        "Comment", back_populates="image", cascade="all, delete-orphan")
+        "Comment", back_populates="image", cascade="all, delete-orphan") #quan hệ 1-n với bảng Comment
+    category: Mapped["Category | None"] = relationship("Category", back_populates="images") #quan hệ n-1 với bảng Category
 
 
 class Comment(Base):
@@ -34,4 +37,20 @@ class Comment(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=datetime.now)
 
-    image: Mapped["Image"] = relationship("Image", back_populates="comments")
+    image: Mapped["Image"] = relationship("Image", back_populates="comments") #quan hệ n-1 với bảng Image
+
+
+class Category(Base):
+    __tablename__ = "categories"
+
+    id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, default=None)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=datetime.now)
+
+    images: Mapped[list["Image"]] = relationship("Image", back_populates="category", cascade="all, delete-orphan") #quan hệ 1-n với bảng Image
+
+
+
