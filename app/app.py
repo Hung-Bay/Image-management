@@ -27,6 +27,8 @@ app = FastAPI(lifespan=lifespan)  # khởi tạo bảng khi ứng dụng vừa c
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
 
+# ===========================================CATEGORIES==========================================
+
 @app.post("/categories", response_model=CategoryResponse)
 async def create_category(category_create: CategoryCreate, session: AsyncSession = Depends(get_async_session)):
     stmt = select(Category).where(Category.name == category_create.name)
@@ -65,6 +67,36 @@ async def get_images_by_category(category_id: uuid.UUID, session: AsyncSession =
     images = result1.scalars().all()
     return images
 
+
+@app.delete("/categories/{category_id}")
+async def delete_category(category_id: uuid.UUID, session: AsyncSession = Depends(get_async_session)):
+    stmt = select(Category).where(Category.id == category_id)
+    result = await session.execute(stmt)
+    category = result.scalar_one_or_none()
+    if not category:
+        raise HTTPException(
+            status_code=404, detail="Không tìm thấy danh mục với ID đã cho.")
+    await session.delete(category)
+    await session.commit()
+    return {"message": "Danh mục đã được xóa thành công.", "category_id": str(category_id)}
+
+
+@app.patch("/categories/{category_id}", response_model=CategoryResponse)
+async def update_category(category_id: uuid.UUID, category_create: CategoryCreate, session: AsyncSession = Depends(get_async_session)):
+    stmt = select(Category).where(Category.id == category_id)
+    result = await session.execute(stmt)
+    category = result.scalar_one_or_none()
+    if not category:
+        raise HTTPException(
+            status_code=404, detail="Không tìm thấy danh mục với ID đã cho.")
+    category.name = category_create.name
+    category.description = category_create.description
+    await session.commit()
+    await session.refresh(category)
+    return category
+
+
+# ===========================================IMAGES==========================================
 
 @app.post("/images", response_model=ImageResponse)
 async def upload_image(file: UploadFile = File(...), category_id: uuid.UUID | None = Form(None), caption: str | None = Form(None), session: AsyncSession = Depends(get_async_session)):
@@ -162,6 +194,8 @@ async def replace_image_inf(image_id: uuid.UUID, image_put: ImagePut, session: A
     return image
 
 
+# ===========================================COMMENTS==========================================
+
 @app.post("/images/{image_id}/comments", response_model=CommentResponse)
 async def add_comment(image_id: uuid.UUID, comment_create: CommentCreate, session: AsyncSession = Depends(get_async_session)):
     stmt = select(Image).where(Image.id == image_id)
@@ -202,6 +236,21 @@ async def delete_comment(comment_id: uuid.UUID, session: AsyncSession = Depends(
     await session.commit()
     return {"message": "Bình luận đã được xóa thành công.", "comment_id": str(comment_id)}
 
+
+@app.patch("/comments/{comment_id}", response_model=CommentResponse)
+async def update_comment(comment_id: uuid.UUID, comment_create: CommentCreate, session: AsyncSession = Depends(get_async_session)):
+    result = await session.execute(select(Comment).where(Comment.id == comment_id))
+    comment = result.scalar_one_or_none()
+    if not comment:
+        raise HTTPException(
+            status_code=404, detail="Không tìm thấy bình luận với ID đã cho.")
+    comment.content = comment_create.content
+    await session.commit()
+    await session.refresh(comment)
+    return comment
+
+
+# ===========================================LIKES==========================================
 
 @app.post("/images/{image_id}/like", response_model=ImageResponse)
 async def like_image(image_id: uuid.UUID, session: AsyncSession = Depends(get_async_session)):
