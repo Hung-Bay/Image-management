@@ -1,5 +1,5 @@
-import model  # Import toàn bộ model (Image, Comment, Category...)
-from db import Base
+import src.fastapi_vd3.model  # Import toàn bộ model (Image, Comment, Category...)
+from src.fastapi_vd3.db import Base
 import asyncio
 from logging.config import fileConfig
 from sqlalchemy import pool
