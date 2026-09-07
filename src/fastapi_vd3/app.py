@@ -6,13 +6,16 @@ from fastapi import FastAPI, File, UploadFile, HTTPException, Depends, Form
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-
+from pathlib import Path as FilePath
 from db import get_async_session, create_db_and_tables
 from model import Image, Comment, Category
 from schemas import ImageUpdate, ImageResponse, ImagePut, CommentCreate, CommentResponse, CategoryCreate, CategoryResponse
 
-UPLOAD_DIR = "static/uploads"
-os.makedirs(UPLOAD_DIR, exist_ok=True)  # tạo thư mục để chứa ảnh
+PACKAGE_DIR = FilePath(__file__).resolve().parent
+
+# 2. Tạo đường dẫn tuyệt đối tới src/fastapi_vd3/static/uploads
+UPLOAD_DIR = PACKAGE_DIR / "static" / "uploads"
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)  # tạo thư mục để chứa ảnh
 
 
 # Hàm context manager bất đồng bộ để quản lý vòng đời của ứng dụng FastAPI
@@ -204,7 +207,8 @@ async def add_comment(image_id: uuid.UUID, comment_create: CommentCreate, sessio
     if not image:
         raise HTTPException(
             status_code=404, detail="Không tìm thấy ảnh với ID đã cho.")
-    new_comment = Comment(image_id=image_id, content=comment_create.content)
+    new_comment = Comment(
+        image_id=image_id, user_name=comment_create.user_name, content=comment_create.content)
     session.add(new_comment)
     await session.commit()
     await session.refresh(new_comment)
