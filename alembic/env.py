@@ -1,5 +1,4 @@
-import src.fastapi_vd3.model  # Import toàn bộ model (Image, Comment, Category...)
-from src.fastapi_vd3.db import Base
+
 import asyncio
 from logging.config import fileConfig
 from sqlalchemy import pool
@@ -14,7 +13,8 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parents[1]
 sys.path.append(str(BASE_DIR / "src" / "fastapi_vd3"))
 
-
+import model  # Import toàn bộ model (Image, Comment, Category...)
+from db import Base
 # This is the Alembic Config object
 config = context.config
 
