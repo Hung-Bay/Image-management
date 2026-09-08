@@ -11,6 +11,7 @@ from db import create_db_and_tables
 from Category.views import router as category_router
 from Image.views import router as image_router
 from Comment.views import router as comment_router
+from fastapi.middleware.cors import CORSMiddleware
 
 PACKAGE_DIR = FilePath(__file__).resolve().parent
 
@@ -27,8 +28,17 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(lifespan=lifespan)  # khởi tạo bảng khi ứng dụng vừa chạy
 
+# Cấu hình CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Cho phép tất cả các nguồn truy cập
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # Phục vụ các file tĩnh (ảnh đã lưu) thông qua đường dẫn URL
-app.mount("/static", StaticFiles(directory=str(UPLOAD_DIR)), name="static")
+app.mount("/static/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="static")
 
 app.include_router(category_router)
 app.include_router(image_router)
