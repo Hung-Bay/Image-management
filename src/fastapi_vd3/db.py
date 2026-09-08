@@ -6,7 +6,7 @@ from sqlalchemy.orm import DeclarativeBase
 
 load_dotenv()
 
-DATABASE_URL = "postgresql+asyncpg://postgres:8521@localhost:5432/imagedb"
+DATABASE_URL = os.getenv("DATABASE_URL")
 
 
 class Base(DeclarativeBase):  # Định nghĩa các mô hình bảng sau này
