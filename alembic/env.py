@@ -13,8 +13,13 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parents[1]
 sys.path.append(str(BASE_DIR / "src" / "fastapi_vd3"))
 
-import model  # Import toàn bộ model (Image, Comment, Category...)
 from db import Base
+
+import auth.models
+import Category.models
+import Image.models
+import Comment.models  # Import toàn bộ model (Image, Comment, Category...)
+
 # This is the Alembic Config object
 config = context.config
 
