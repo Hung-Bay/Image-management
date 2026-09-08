@@ -7,9 +7,13 @@ requires-python = ">=3.13"
 dependencies = [
     "alembic>=1.19.1",
     "asyncpg>=0.31.0",
+    "bcrypt==4.0.1",
     "fastapi[standard]>=0.141.1",
+    "passlib[bcrypt]>=1.7.4",
     "pydantic>=2.13.4",
     "python-dotenv>=1.2.3",
+    "python-jose[cryptography]>=3.5.0",
+    "sentry-sdk>=2.68.1",
     "sqlalchemy>=2.0.52",
     "uvicorn[standard]>=0.52.4",
 ]
