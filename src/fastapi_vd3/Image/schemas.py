@@ -10,6 +10,7 @@ class ImageUpdate(BaseModel):
 class ImageResponse(BaseModel):
     id: UUID
     file_name: str
+    saved_file_name: str
     file_path: str
     caption: str | None
     likes_count: int
