@@ -25,7 +25,7 @@ async def login(login_request: LoginRequest, session: AsyncSession = Depends(get
         )
 
     access_token, refresh_token = create_tokens(str(user.id), user.role)
-    return TokenResponse(access_token=access_token, refresh_token=refresh_token)
+    return TokenResponse(access_token=access_token, refresh_token=refresh_token, token_type="bearer", username=user.username, role=user.role)
 
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh_token(refresh_request: RefreshRequest, session: AsyncSession = Depends(get_async_session)):

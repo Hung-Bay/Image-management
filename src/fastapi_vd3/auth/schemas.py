@@ -10,6 +10,9 @@ class RefreshRequest(BaseModel):
 class TokenResponse(BaseModel):
     access_token: str
     refresh_token: str | None = None
+    token_type: str = "bearer"
+    username: str
+    role: str
 
 class RegisterRequest(BaseModel):
     username: str
