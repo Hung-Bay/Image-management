@@ -5,6 +5,8 @@ from db import get_async_session
 from Category.service import get_category_by_id
 from Image import service
 from Image.schemas import ImageResponse, ImageUpdate, ImagePut
+from auth.utils import get_current_user
+from auth.models import User
 
 router = APIRouter(prefix="/images", tags=["Images"])
 
@@ -14,7 +16,8 @@ async def upload_image(
     file: UploadFile = File(...),
     category_id: uuid.UUID | None = Form(None),
     caption: str | None = Form(None),
-    session: AsyncSession = Depends(get_async_session)
+    session: AsyncSession = Depends(get_async_session),
+    current_user: User = Depends(get_current_user)
 ):
     if file.content_type not in ["image/jpeg", "image/png", "image/gif"]:
         raise HTTPException(
@@ -25,7 +28,7 @@ async def upload_image(
             raise HTTPException(
                 status_code=404, detail="Không tìm thấy danh mục với ID đã cho.")
 
-    new_image = await service.save_uploaded_file(file, category_id, caption, session)
+    new_image = await service.save_uploaded_file(file, category_id, caption, current_user.id, session)
     return new_image
 
 
@@ -45,21 +48,31 @@ async def get_image(image_id: uuid.UUID, session: AsyncSession = Depends(get_asy
 
 
 @router.put("/{image_id}", response_model=ImageResponse)
-async def update_image(image_id: uuid.UUID, image_update: ImageUpdate, session: AsyncSession = Depends(get_async_session)):
+async def update_image(image_id: uuid.UUID, image_update: ImageUpdate, session: AsyncSession = Depends(get_async_session), current_user: User = Depends(get_current_user)):
     image = await service.get_image_by_id(image_id, session)
     if image is None:
         raise HTTPException(
             status_code=404, detail="Không tìm thấy hình ảnh với ID đã cho.")
+    if current_user.role != "admin" and image.user_id != current_user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Bạn không có quyền sửa bài đăng của người khác"
+        )
     updated_image = await service.update_image(image, image_update, session)
     return updated_image
 
 
 @router.delete("/{image_id}", response_model=dict)
-async def delete_image(image_id: uuid.UUID, session: AsyncSession = Depends(get_async_session)):
+async def delete_image(image_id: uuid.UUID, session: AsyncSession = Depends(get_async_session), current_user: User = Depends(get_current_user)):
     image = await service.get_image_by_id(image_id, session)
     if image is None:
         raise HTTPException(
             status_code=404, detail="Không tìm thấy hình ảnh với ID đã cho.")
+    if current_user.role != "admin" and image.user_id != current_user.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Bạn không có quyền xóa bài đăng của người khác"
+        )
     await service.delete_image(image, session)
     return {"message": "Hình ảnh đã được xóa thành công."}
 

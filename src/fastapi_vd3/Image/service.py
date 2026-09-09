@@ -25,7 +25,7 @@ async def get_all_images(session: AsyncSession):
     return result.scalars().all()
 
 
-async def save_uploaded_file(upload_file: UploadFile, category_id: uuid.UUID | None, caption: str | None, session: AsyncSession):
+async def save_uploaded_file(upload_file: UploadFile, category_id: uuid.UUID | None, caption: str | None, user_id: uuid.UUID, session: AsyncSession):
     file_extension = os.path.splitext(upload_file.filename)[1]
     save_filename = f"{uuid.uuid4()}{file_extension}"
     file_path = os.path.join(UPLOAD_DIR, save_filename)
@@ -35,6 +35,7 @@ async def save_uploaded_file(upload_file: UploadFile, category_id: uuid.UUID | N
 
     new_image = Image(
         category_id=category_id,
+        user_id=user_id,
         file_name=upload_file.filename,
         saved_file_name=save_filename,
         file_path=str(file_path),
