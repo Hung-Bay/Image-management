@@ -13,6 +13,7 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
     username: str
     role: str
+    user_id: str
 
 class RegisterRequest(BaseModel):
     username: str
