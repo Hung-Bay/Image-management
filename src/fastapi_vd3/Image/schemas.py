@@ -9,6 +9,7 @@ class ImageUpdate(BaseModel):
 
 class ImageResponse(BaseModel):
     id: UUID
+    user_id: UUID
     file_name: str
     saved_file_name: str
     file_path: str
