@@ -9,6 +9,7 @@ from auth.utils import require_admin
 from auth.models import User
 
 
+
 router = APIRouter(prefix="/categories", tags=["Categories"])
 
 

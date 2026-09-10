@@ -1,9 +1,11 @@
 import uuid
+import os
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import select, delete as sql_delete
 from Category.models import Category
 from Category.schemas import CategoryCreate
 from Image.models import Image
+from Comment.models import Comment
 
 
 async def get_category_by_name(name: str, session: AsyncSession):
@@ -32,11 +34,17 @@ async def get_all_categories(session: AsyncSession):
     return result.scalars().all()
 
 async def delete_category(category: Category, session: AsyncSession):
-    # Xóa tất cả các hình ảnh liên quan đến danh mục
-    for image in category.images:
-        await session.delete(image)
+    result = await session.execute(select(Image).where(Image.category_id == category.id))
+    images = result.scalars().all()
+    image_ids = [image.id for image in images]
 
-    # Xóa danh mục
+    if image_ids:
+        await session.execute(sql_delete(Comment).where(Comment.image_id.in_(image_ids)))
+        for image in images:
+            if image.file_path and os.path.exists(image.file_path):
+                os.remove(image.file_path)
+        await session.execute(sql_delete(Image).where(Image.id.in_(image_ids)))
+
     await session.delete(category)
     await session.commit()
 
