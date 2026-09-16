@@ -62,7 +62,9 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(b
         headers={"WWW-Authenticate": "Bearer"}
     )
 
+    
     try:
+        # Giải mã + verify chữ ký bằng SECRET_KEY — nếu token bị sửa nội dung, hết hạn (exp), hoặc ký sai key thì jwt.decode ném JWTError.
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         user_id_str: str = payload.get("sub")
         if user_id_str is None: 

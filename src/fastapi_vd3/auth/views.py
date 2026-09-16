@@ -1,18 +1,18 @@
 import uuid
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Response, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from jose import jwt, JWTError
 
 from db import get_async_session
 from auth.models import User
-from auth.schemas import LoginRequest, RefreshRequest, TokenResponse, RegisterRequest, UserResponse
+from auth.schemas import LoginRequest, TokenResponse, RegisterRequest, UserResponse
 from auth.utils import verify_password, get_password_hash, create_tokens, SECRET_KEY, ALGORITHM
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
 @router.post("/login", response_model=TokenResponse)
-async def login(login_request: LoginRequest, session: AsyncSession = Depends(get_async_session)):
+async def login(login_request: LoginRequest, response: Response, session: AsyncSession = Depends(get_async_session)):
     stmt = select(User).where(User.username == login_request.username)
     result = await session.execute(stmt)
     user = result.scalar_one_or_none()
@@ -25,17 +25,31 @@ async def login(login_request: LoginRequest, session: AsyncSession = Depends(get
         )
 
     access_token, refresh_token = create_tokens(str(user.id), user.role)
-    return TokenResponse(access_token=access_token, refresh_token=refresh_token, token_type="bearer", username=user.username, role=user.role, user_id=str(user.id))
+
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,      # JS không đọc được
+        secure=True,        # chỉ gửi qua HTTPS (bật False khi dev local http)
+        samesite="lax",     # chặn CSRF cơ bản
+        max_age=60 * 60 * 24 * 60,  
+        path="/auth/refresh"    # cookie chỉ gửi lên đúng endpoint này, thu hẹp phạm vi lộ
+    )
+    return TokenResponse(access_token=access_token, token_type="bearer", username=user.username, role=user.role, user_id=str(user.id))
 
 @router.post("/refresh", response_model=TokenResponse)
-async def refresh_token(refresh_request: RefreshRequest, session: AsyncSession = Depends(get_async_session)):
+async def refresh_token(request: Request, response: Response, session: AsyncSession = Depends(get_async_session)):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Token làm mới không hợp lệ.",
         headers={"WWW-Authenticate": "Bearer"},
     )
+    refresh_token_value = request.cookies.get("refresh_token")
+    if refresh_token_value is None:
+        raise credentials_exception
+
     try:
-        payload = jwt.decode(refresh_request.refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(refresh_token_value, SECRET_KEY, algorithms=[ALGORITHM])
         if payload.get("type") != "refresh":
             raise credentials_exception
 
@@ -57,6 +71,17 @@ async def refresh_token(refresh_request: RefreshRequest, session: AsyncSession =
             status_code=status.HTTP_404_NOT_FOUND, detail="Người dùng không tồn tại.")
 
     new_access_token, _ = create_tokens(str(user.id), user.role)
+
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=True,
+        samesite="lax",
+        max_age=60 * 60 * 24 * 60,
+        path="/auth/refresh"
+    )
+    
     return TokenResponse(access_token=new_access_token, refresh_token=refresh_request.refresh_token)
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
