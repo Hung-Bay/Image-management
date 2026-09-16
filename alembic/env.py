@@ -1,4 +1,10 @@
-
+import Comment.models  # Import toàn bộ model (Image, Comment, Category...)
+import Image.models
+import Category.models
+import auth.models
+from db import Base
+import os
+from dotenv import load_dotenv
 import asyncio
 from logging.config import fileConfig
 from sqlalchemy import pool
@@ -13,18 +19,17 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parents[1]
 sys.path.append(str(BASE_DIR / "src" / "fastapi_vd3"))
 
-from db import Base
 
-import auth.models
-import Category.models
-import Image.models
-import Comment.models  # Import toàn bộ model (Image, Comment, Category...)
+load_dotenv(BASE_DIR / ".env")
 
 # This is the Alembic Config object
 config = context.config
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
+
+database_url = os.getenv("DATABASE_URL")
+config.set_main_option("sqlalchemy.url", database_url)
 
 # Gán metadata để hỗ trợ tính năng Autogenerate
 target_metadata = Base.metadata
