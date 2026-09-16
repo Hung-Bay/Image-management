@@ -35,10 +35,11 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)  # khởi tạo bảng khi ứng dụng vừa chạy
 
 # Cấu hình CORS
+# CORS (Cross-Origin Resource Sharing) quyết định trình duyệt có cho phép
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Cho phép tất cả các nguồn truy cập
-    allow_credentials=True,
+    allow_origins=["http://127.0.0.1:5500"], #cho phép frontend truy cập
+    allow_credentials=True,     # Cho phép request kèm cookie / Authorization header
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -48,18 +49,18 @@ app.mount("/static/uploads", StaticFiles(directory=str(UPLOAD_DIR)), name="stati
 
 
 @app.middleware("http")
-async def metrics_middleware(request: Request, call_next):
+async def metrics_middleware(request: Request, call_next):  # Middleware đo hiệu năng: chạy quanh mọi request đi qua app.
     start_time = time.time()
     response = await call_next(request)
     process_time = time.time() - start_time
-    response.headers["X-Process-Time"] = f"{process_time:.4f}s"
+    response.headers["X-Process-Time"] = f"{process_time:.4f}s" 
     print(
         f"Request: {request.method} {request.url.path} completed in {process_time:.4f}s")
     return response
 
 
 @app.middleware("http")
-async def db_session_middleware(request: Request, call_next):
+async def db_session_middleware(request: Request, call_next):   # Mở 1 phiên (session) kết nối DB riêng cho mỗi request, rồi tự đóng lại khi request xử lý xong
     async with async_session_maker() as session:
         request.state.db = session
         response = await call_next(request)
@@ -67,9 +68,9 @@ async def db_session_middleware(request: Request, call_next):
 
 
 @app.exception_handler(Exception)
-async def global_exception_handler(request: Request, exc: Exception):
+async def global_exception_handler(request: Request, exc: Exception):   # Bắt tất cả exception không được xử lý
     if sentry_dns:
-        sentry_sdk.capture_exception(exc)
+        sentry_sdk.capture_exception(exc) #gửi lỗi lên sentry
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
