@@ -19,9 +19,9 @@ async def upload_image(
     session: AsyncSession = Depends(get_async_session),
     current_user: User = Depends(get_current_user)
 ):
-    if file.content_type not in ["image/jpeg", "image/png", "image/gif"]:
+    if file.content_type not in ["image/jpeg", "image/png", "image/gif", "image/webp"]:
         raise HTTPException(
-            status_code=400, detail="Định dạng file sai, chỉ cho phép JPEG, PNG và GIF.")
+            status_code=400, detail="Định dạng file sai, chỉ cho phép JPEG, PNG, WEBP và GIF.")
     if category_id is not None:
         category = await get_category_by_id(category_id, session)
         if category is None:
