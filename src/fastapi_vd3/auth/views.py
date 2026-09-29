@@ -70,11 +70,11 @@ async def refresh_token(request: Request, response: Response, session: AsyncSess
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND, detail="Người dùng không tồn tại.")
 
-    new_access_token, _ = create_tokens(str(user.id), user.role)
+    new_access_token, new_refresh_token = create_tokens(str(user.id), user.role)
 
     response.set_cookie(
         key="refresh_token",
-        value=refresh_token,
+        value=new_refresh_token,
         httponly=True,
         secure=True,
         samesite="lax",
@@ -82,7 +82,7 @@ async def refresh_token(request: Request, response: Response, session: AsyncSess
         path="/auth/refresh"
     )
     
-    return TokenResponse(access_token=new_access_token, refresh_token=refresh_request.refresh_token)
+    return TokenResponse(access_token=new_access_token, token_type="bearer", username=user.username, role=user.role, user_id=str(user.id))
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 async def register(register_request: RegisterRequest, session: AsyncSession = Depends(get_async_session)):
