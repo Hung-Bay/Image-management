@@ -7,10 +7,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from Image.models import Image
 from Image.schemas import ImageUpdate, ImageResponse, ImagePut
+from imagekitio import AsyncImageKit
 
 PACKAGE_DIR = FilePath(__file__).resolve().parent.parent
 UPLOAD_DIR = PACKAGE_DIR / "static" / "uploads"
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+imagekit = AsyncImageKit(
+    private_key=os.getenv("IMAGEKIT_PRIVATE_KEY"),
+)
 
 
 async def get_image_by_id(image_id: uuid.UUID, session: AsyncSession):
@@ -30,15 +35,22 @@ async def save_uploaded_file(upload_file: UploadFile, category_id: uuid.UUID | N
     save_filename = f"{uuid.uuid4()}{file_extension}"
     file_path = os.path.join(UPLOAD_DIR, save_filename)
 
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(upload_file.file, buffer)
+    file_bytes = await upload_file.read()
+
+    upload_result = await imagekit.files.upload(
+        file=file_bytes,
+        file_name=save_filename,
+        folder="/project_hung_bay/",   # gom ảnh của project vào 1 thư mục riêng trên ImageKit, dễ quản lý
+        use_unique_file_name=False,    # đã tự sinh tên bằng uuid.uuid4() ở trên rồi, khỏi cần ImageKit random thêm lần nữa
+    )
 
     new_image = Image(
         category_id=category_id,
         user_id=user_id,
         file_name=upload_file.filename,
         saved_file_name=save_filename,
-        file_path=str(file_path),
+        file_path=upload_result.url,
+        imagekit_file_id=upload_result.file_id,
         caption=caption,
     )
     session.add(new_image)
@@ -66,8 +78,10 @@ async def update_image_put(image: Image, image_put: ImagePut, session: AsyncSess
 
 
 async def delete_image(image: Image, session: AsyncSession):
+    if image.imagekit_file_id:
+        await imagekit.files.delete(image.imagekit_file_id)
     # Xóa file ảnh khỏi hệ thống tệp
-    if os.path.exists(image.file_path):
+    elif os.path.exists(image.file_path):
         os.remove(image.file_path)
 
     # Xóa bản ghi ảnh khỏi cơ sở dữ liệu

@@ -18,6 +18,7 @@ class Image(Base):
     file_name: Mapped[str] = mapped_column(String)
     saved_file_name: Mapped[str] = mapped_column(String)
     file_path: Mapped[str] = mapped_column(String)
+    imagekit_file_id: Mapped[str | None] = mapped_column(String, nullable=True)
     caption: Mapped[str | None] = mapped_column(Text, default=None)
     likes_count: Mapped[int] = mapped_column(Integer, default=0)
     created_at: Mapped[datetime] = mapped_column(

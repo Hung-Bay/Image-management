@@ -1,37 +1,36 @@
-import Comment.models  # Import toàn bộ model (Image, Comment, Category...)
-import Image.models
-import Category.models
-import auth.models
-from db import Base
 import os
-from dotenv import load_dotenv
+import sys
 import asyncio
+from pathlib import Path
 from logging.config import fileConfig
+
 from sqlalchemy import pool
 from sqlalchemy.ext.asyncio import async_engine_from_config
 from alembic import context
+from dotenv import load_dotenv
 
-# 1. Import Base từ db và các Model để Alembic quét qua metadata
-import sys
-from pathlib import Path
 
-# 1. Thêm đường dẫn tới thư mục src/fastapi_vd3 vào sys.path
 BASE_DIR = Path(__file__).resolve().parents[1]
 sys.path.append(str(BASE_DIR / "src" / "fastapi_vd3"))
 
-
 load_dotenv(BASE_DIR / ".env")
 
-# This is the Alembic Config object
+from db import Base
+import auth.models
+import Category.models
+import Image.models
+import Comment.models  
+
 config = context.config
 
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 database_url = os.getenv("DATABASE_URL")
+if not database_url:
+    raise RuntimeError("Thiếu biến DATABASE_URL trong file .env — Alembic cần biến này để kết nối CSDL.")
 config.set_main_option("sqlalchemy.url", database_url)
 
-# Gán metadata để hỗ trợ tính năng Autogenerate
 target_metadata = Base.metadata
 
 
