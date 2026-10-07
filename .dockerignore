@@ -1,0 +1,6 @@
+.venv
+.git
+.env
+**/__pycache__
+*.pyc
+src/fastapi_vd3/static/uploads/*

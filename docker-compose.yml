@@ -1,0 +1,11 @@
+services:
+  api:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env.docker        # bản sao của .env, đổi localhost -> host.docker.internal
+    ports:
+      - "127.0.0.1:8000:8000"   # chỉ máy bạn (nginx trên Windows) gọi được
+    volumes:
+      # ảnh cũ lưu trên đĩa vẫn nằm ở thư mục cũ để nginx Windows đọc như trước
+      - ./src/fastapi_vd3/static/uploads:/app/src/fastapi_vd3/static/uploads
